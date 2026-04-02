@@ -9,7 +9,9 @@ import { EARTH_RADIUS_KM, MOON_DISTANCE_KM } from "@/config/artemis-ii";
  */
 export function getMoonPosition(met: number): Vec3 {
   const orbitalPeriod = 27.3 * 86400; // seconds
-  const initialAngle = 0; // Moon starts along +X axis
+  // Moon should be near +X axis at closest approach (day 4) to match trajectory waypoints
+  const closestApproachMet = 4 * 86400;
+  const initialAngle = -(2 * Math.PI * closestApproachMet) / orbitalPeriod;
   const angle = initialAngle + (2 * Math.PI * met) / orbitalPeriod;
   return vec3(
     MOON_DISTANCE_KM * Math.cos(angle),
@@ -69,7 +71,7 @@ export function computeTelemetry(met: number, point: TrajectoryPoint): Telemetry
   return {
     met,
     speed: magnitude(point.velocity),
-    altitude: magnitude(point.position) - EARTH_RADIUS_KM,
+    altitude: Math.max(0, magnitude(point.position) - EARTH_RADIUS_KM),
     distanceToEarth: magnitude(point.position),
     distanceToMoon: magnitude(subtract(point.position, moonPos)),
     phase: point.phase,
