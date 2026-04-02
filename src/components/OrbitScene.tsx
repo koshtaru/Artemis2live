@@ -34,29 +34,46 @@ function toScaled(v: Vec3): [number, number, number] {
 
 const FULL_TRAJECTORY = generateFullTrajectory(600);
 
+// Textured variants — useTexture suspends until loaded (Suspense-safe, always called unconditionally)
+function EarthTextured({ meshRef }: { meshRef: React.RefObject<THREE.Mesh | null> }) {
+  const texture = useTexture("/textures/earth.jpg");
+  return (
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[EARTH_RADIUS, 64, 64]} />
+      <meshStandardMaterial map={texture} roughness={0.8} metalness={0.1} />
+    </mesh>
+  );
+}
+
+function EarthFallback({ meshRef }: { meshRef: React.RefObject<THREE.Mesh | null> }) {
+  return (
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[EARTH_RADIUS, 64, 64]} />
+      <meshStandardMaterial color="#1a6fa0" roughness={0.8} metalness={0.1} />
+    </mesh>
+  );
+}
+
 function Earth() {
   const meshRef = useRef<THREE.Mesh>(null);
-  let texture: THREE.Texture | undefined;
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    texture = useTexture("/textures/earth.jpg");
-  } catch {
-    texture = undefined;
-  }
 
   useFrame((_, delta) => {
     if (meshRef.current) meshRef.current.rotation.y += delta * 0.05;
   });
 
   return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[EARTH_RADIUS, 64, 64]} />
-      <meshStandardMaterial
-        map={texture}
-        color={texture ? undefined : "#1a6fa0"}
-        roughness={0.8}
-        metalness={0.1}
-      />
+    <Suspense fallback={<EarthFallback meshRef={meshRef} />}>
+      <EarthTextured meshRef={meshRef} />
+    </Suspense>
+  );
+}
+
+function MoonTextured({ pos }: { pos: [number, number, number] }) {
+  const texture = useTexture("/textures/moon.jpg");
+  return (
+    <mesh position={pos}>
+      <sphereGeometry args={[MOON_RADIUS, 32, 32]} />
+      <meshStandardMaterial map={texture} roughness={0.95} />
     </mesh>
   );
 }
@@ -64,23 +81,18 @@ function Earth() {
 function Moon({ met }: { met: number }) {
   const moonPos = getMoonPosition(met);
   const pos = toScaled(moonPos);
-  let texture: THREE.Texture | undefined;
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    texture = useTexture("/textures/moon.jpg");
-  } catch {
-    texture = undefined;
-  }
 
   return (
-    <mesh position={pos}>
-      <sphereGeometry args={[MOON_RADIUS, 32, 32]} />
-      <meshStandardMaterial
-        map={texture}
-        color={texture ? undefined : "#8a8a8a"}
-        roughness={0.95}
-      />
-    </mesh>
+    <Suspense
+      fallback={
+        <mesh position={pos}>
+          <sphereGeometry args={[MOON_RADIUS, 32, 32]} />
+          <meshStandardMaterial color="#8a8a8a" roughness={0.95} />
+        </mesh>
+      }
+    >
+      <MoonTextured pos={pos} />
+    </Suspense>
   );
 }
 
@@ -279,10 +291,8 @@ const OrbitScene = forwardRef<SceneHandle>((_, ref) => {
 
       <Stars radius={200} depth={60} count={3000} factor={4} fade />
 
-      <Suspense fallback={null}>
-        <Earth />
-        <Moon met={met} />
-      </Suspense>
+      <Earth />
+      <Moon met={met} />
 
       <TrajectoryPath met={met} />
       <OrionMarker position={position} />

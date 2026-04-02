@@ -56,9 +56,7 @@ export default function CrewSection() {
                   </motion.p>
                 )}
               </AnimatePresence>
-              {!isExpanded && (
-                <p className="text-xs text-white/30">{isExpanded ? "▲ less" : "▼ more"}</p>
-              )}
+              <p className="text-xs text-white/30">{isExpanded ? "▲ less" : "▼ more"}</p>
             </motion.div>
           );
         })}

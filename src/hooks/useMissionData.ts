@@ -26,23 +26,27 @@ export function useMissionData() {
   useEffect(() => {
     if (!isLive) return;
 
+    let active = true; // prevent state updates and new timeouts after cleanup
+
     async function poll() {
       try {
         const res = await fetch("/api/trajectory");
+        if (!active) return; // effect cleaned up while fetch was in flight
         if (res.ok) {
           const data: TrajectoryAPIResponse = await res.json();
-          syncFromAPI(data.met, data.position, data.velocity, data.dataSource);
+          if (active) syncFromAPI(data.met, data.position, data.velocity, data.dataSource);
         }
       } catch {
-        // Network error — store will continue on computed trajectory via tick()
+        // Network error — store continues on computed trajectory via tick()
       }
-      timerRef.current = setTimeout(poll, POLL_INTERVAL);
+      if (active) timerRef.current = setTimeout(poll, POLL_INTERVAL);
     }
 
     // Initial poll immediately
     poll();
 
     return () => {
+      active = false;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [isLive, syncFromAPI]);

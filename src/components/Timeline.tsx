@@ -61,7 +61,7 @@ export default function Timeline() {
               }`}
             >
               <span className="text-lg leading-none">
-                {isPast ? "✓" : isCurrent ? "●" : "○"}
+                {isCurrent ? "●" : isPast ? "✓" : "○"}
               </span>
               <span
                 className={`text-xs font-semibold truncate ${
