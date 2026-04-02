@@ -1,138 +1,150 @@
-# Artemis II Live — Implementation Plan
+# Artemis II Live — Personal Geek Implementation Plan
 
-## Context
-Build a real-time Artemis II mission tracker dashboard. The repo is empty. Key requirements:
-- **Live app** with real-time data (NASA AROW API primary, orbital computation fallback)
-- **Reusable framework** — architected so future Artemis missions can be swapped in via config
-- **Simpler than the brainstorm doc** — clean MVP, not over-engineered
+**Project Type**: Personal local project only (run via `npm run dev` on your machine). No deployment, monetization, community features, or production hosting required.  
+**Focus**: Smooth, delightful UI/UX with fluid animations, intuitive controls, and responsive feel. Geek-friendly extras for tinkering (time scrubbing, keyboard shortcuts, manual simulation mode, data export, orbital math playground).  
+**Core Goal**: Real-time (or simulated) Orion spacecraft status with an immersive interactive 3D Earth-Moon-Orion map showing positions, distances, trails, and trajectory. Built for personal enjoyment while Artemis II is actively flying (launched successfully on April 1, 2026 at 6:35 p.m. EDT from Kennedy Space Center; currently in early post-launch Earth orbit phase with perigee/apogee raise maneuvers completed or in progress, solar panels deployed, and preparing for translunar injection and the ~10-day free-return trajectory around the Moon with splashdown ~April 10).
+
+## Updated Context & Vision
+
+This is a clean, reusable-but-personal dashboard inspired by NASA's AROW but enhanced for geek exploration. It prioritizes buttery-smooth interactions, minimal friction, and fun power-user features without over-engineering.
+
+Key UX improvements:
+- Fluid animations (Framer Motion) for transitions, camera movements, and data updates.
+- Time scrubber with play/pause/speed controls (1x/10x/100x/1000x).
+- Intuitive 3D controls with inertia/damping and one-click focus (Earth/Moon/Orion).
+- Hover tooltips with simple orbital explanations.
+- Immediate visual feedback (micro-animations, confidence indicators for data sources).
+- Keyboard shortcuts for power users (Space=pause, E/M/O=focus, arrows=scrub, 1-4=speed, ?=help).
+- Personal config for themes, units (miles/km), visible panels, and hotkeys.
+- Offline-first with local ephemeris caching and seamless fallback projections during data gaps/blackouts.
+- Edge case handling: Smooth scale transitions (LEO -> lunar distances), graceful degradation.
+- `/simulator` route: Pause live data, manually adjust delta-V parameters, watch trajectory update, export results.
+
+Mission phases dynamically reflected from config. Heavy NASA attribution in comments/footer (personal fan project).
 
 ## Tech Stack
-- **Next.js 16 + TypeScript + Tailwind CSS** (App Router, `src/` dir)
-- **Three.js + React Three Fiber + Drei** — 3D Earth/Moon/trajectory
-- **Recharts** — telemetry charts
-- **date-fns** — time formatting
+
+- **Core**: Next.js 16 (App Router, src/ dir) + TypeScript + Tailwind CSS
+- **3D Visualization**: Three.js + @react-three/fiber + @react-three/drei
+- **Animations**: Framer Motion (UI panels/transitions + micro-animations)
+- **State**: Zustand (simulation store -- MET, isLive, playbackSpeed, telemetry)
+- **Charts**: Recharts (interactive, dark-themed, with current-MET reference line)
+- **Utilities**: date-fns, custom vector/orbital math libs
 
 ## File Structure
+
 ```
 src/
   app/
-    layout.tsx              # Root layout, dark theme, metadata
-    page.tsx                # Dashboard page composing all sections
-    globals.css             # Tailwind + glow utilities
+    layout.tsx              # Root layout, dark space theme, metadata
+    page.tsx                # Main dashboard (split layout)
+    simulator/page.tsx      # Geek simulator route
+    globals.css             # Tailwind + glow/animation utilities
     api/
-      trajectory/route.ts   # API route: proxies NASA AROW, caches, falls back to computed
+      trajectory/route.ts   # Local proxy + fallback (already built)
   components/
-    MissionHeader.tsx       # MET clock, phase, quick stats
-    SceneView.tsx           # Dynamic import wrapper (ssr: false)
-    OrbitScene.tsx          # R3F Canvas: Earth, Moon, path, Orion marker
+    MissionHeader.tsx       # MET clock, phase, stats with smooth updates
+    OrbitScene.tsx          # Core R3F scene with damping controls
+    SceneView.tsx           # Dynamic import (ssr: false)
+    TimeScrubber.tsx        # Smooth timeline slider + play/pause/speed controls
+    TelemetryCharts.tsx     # Interactive Recharts with "now" marker
     Timeline.tsx            # Horizontal milestone timeline
-    TelemetryCharts.tsx     # Velocity + distance charts
-    CrewSection.tsx         # Crew cards grid
-    EducationSection.tsx    # Collapsible explainers
+    CrewSection.tsx         # 4 crew cards with expandable bios
+    EducationSection.tsx    # Collapsible education panels
+    KeyboardControls.tsx    # Global hotkeys + ? overlay
   config/
-    artemis-ii.ts           # Mission-specific config (crew, milestones, orbital params, API endpoints)
-    types.ts                # Shared TypeScript interfaces for any mission
+    artemis-ii.ts           # Mission config -- already built
+    types.ts                # Shared interfaces -- already built
+    ui.ts                   # Personal preferences (units, hotkeys, camera defaults)
+  store/
+    simulation.ts           # Zustand store (MET, isLive, speed, telemetry, position)
   lib/
-    data-provider.ts        # Fetches from API route, manages polling, exposes current state
-    orbital.ts              # Compute positions from Keplerian elements (fallback engine)
-    arow-client.ts          # NASA AROW API client with error handling
-    vector.ts               # Vec3 math utilities
-    format.ts               # Number/time formatting
+    orbital.ts              # Orbital math -- already built
+    vector.ts               # Vec3 helpers -- already built
+    format.ts               # Formatting -- already built
+    arow-client.ts          # AROW client -- already built
   hooks/
-    useMissionData.ts       # Hook: polls data-provider, returns live telemetry + position
-    useSimulationClock.ts   # Hook: MET timer, phase detection
+    useMissionData.ts       # Polls /api/trajectory, interpolates, updates store
+    useSimulationClock.ts   # Real-time MET ticker, respects playbackSpeed
+    useKeyboard.ts          # Global keyboard shortcut handler
 public/
-  textures/                 # earth.jpg, moon.jpg
+  textures/                 # earth.jpg, moon.jpg (NASA public domain)
 ```
 
-## Reusability Architecture
-The `config/` directory is the key to reuse:
-- `types.ts` defines mission-agnostic interfaces (`MissionConfig`, `CrewMember`, `Milestone`, `OrbitalParameters`, `TrajectoryPoint`, etc.)
-- `artemis-ii.ts` is the mission-specific config implementing those interfaces
-- To support Artemis III: create `artemis-iii.ts` with new crew/milestones/orbital params, update an import in `page.tsx`
-- The data layer, 3D scene, and all components consume the config — they never hardcode mission-specific data
+## Reusability
 
-## Data Strategy: AROW API + Orbital Fallback
+- `config/types.ts` defines mission-agnostic interfaces.
+- `config/artemis-ii.ts` holds all Artemis II specifics.
+- `config/ui.ts` stores personal tweaks (preferred camera, units, hotkeys).
+- To add Artemis III: create `artemis-iii.ts`, swap the import in `page.tsx`.
+- Components consume the store and config -- they never hardcode mission data.
 
-### Primary: NASA AROW API
-- Next.js API route (`/api/trajectory`) proxies requests to NASA's AROW endpoint
-- Polls every 30 seconds for latest position/velocity
-- Server-side caching to respect rate limits
-- Returns standardized `TrajectoryPoint` format
+## Data Strategy
 
-### Fallback: Orbital Computation
-- `orbital.ts` contains Keplerian orbit propagation using the mission's orbital parameters
-- When AROW is unavailable (network error, mission not active), computes position from elements
-- Uses actual Artemis II trajectory parameters (TLI velocity, free-return geometry)
-- Seamless switch — components don't know which source is active
-
-### Client-Side Flow
-1. `useMissionData` hook polls `/api/trajectory` every 30s
-2. API route tries AROW → falls back to orbital computation
-3. Between polls, client-side interpolation smooths the position (linear lerp over 30s intervals)
-4. `useSimulationClock` provides MET, derived phase, countdown to next milestone
+- **Primary**: Proxy to NASA AROW via `/api/trajectory` (polls every 30s from client).
+- **Fallback**: Client-side orbital computation from waypoints/ephemeris.
+- **Smoothing**: Linear interpolation between data points for fluid Orion movement.
+- **Geek features**: Time scrubber, playback speed control, manual delta-V input in simulator.
+- **Data gaps**: Show last-known + projected path with "COMPUTED" badge.
 
 ## Implementation Steps
 
-### Step 1: Scaffold Project
-- `npx create-next-app@latest . --ts --tailwind --app --src-dir --use-npm --eslint`
-- `npm install three @react-three/fiber @react-three/drei recharts date-fns`
-- `npm install -D @types/three`
-- Configure tailwind with space/artemis color palette (deep blacks, glowing blues/oranges)
-- Set up dark theme globals, layout with Inter font
-- Add `transpilePackages: ['three']` to next.config
+### Step 1: Push updated plan
+Replace IMPLEMENTATION_PLAN.md with this document and push to GitHub.
 
-### Step 2: Config & Types
-- `src/config/types.ts`: `MissionConfig`, `CrewMember`, `Milestone`, `MissionPhase`, `OrbitalParameters`, `TrajectoryPoint`, `TelemetrySnapshot`, `Vec3`
-- `src/config/artemis-ii.ts`: Full Artemis II config — launch date (April 1 2026 22:35 UTC), crew (Wiseman, Glover, Koch, Hansen), ~15 milestones (Launch → TLI → Lunar Flyby → Splashdown), orbital parameters for the free-return trajectory, AROW API endpoint URL, phase definitions with MET ranges
+### Step 2: Install new dependencies
+```
+npm install framer-motion zustand
+```
 
-### Step 3: Data Layer
-- `src/lib/vector.ts`: Vec3 add/subtract/scale/magnitude/lerp/distance
-- `src/lib/orbital.ts`: Given orbital parameters + MET → compute position & velocity. Simplified model: define ~20 key waypoints from real trajectory data, interpolate with smooth curves. Includes Earth-Moon geometry.
-- `src/lib/arow-client.ts`: Fetch from NASA AROW, parse response into `TrajectoryPoint` format, handle errors gracefully
-- `src/lib/data-provider.ts`: Orchestrates AROW fetch → fallback → returns normalized data
-- `src/app/api/trajectory/route.ts`: Next.js route handler — calls data-provider, caches last result, returns JSON
-- `src/lib/format.ts`: `formatMET()`, `formatDistance()`, `formatVelocity()`
+### Step 3: Foundation
+- `src/config/ui.ts` -- personal preferences object
+- `src/store/simulation.ts` -- Zustand store
 
 ### Step 4: Hooks
-- `src/hooks/useSimulationClock.ts`: Computes MET from `Date.now() - launchDate`, determines current phase from config's phase ranges, finds next milestone. Updates every 1s.
-- `src/hooks/useMissionData.ts`: Polls `/api/trajectory` every 30s, stores latest + previous points, interpolates between them on each render frame for smooth motion. Returns `{ position, velocity, distanceToEarth, distanceToMoon, altitude, speed, dataSource }`.
+- `src/hooks/useSimulationClock.ts`
+- `src/hooks/useMissionData.ts`
+- `src/hooks/useKeyboard.ts`
 
-### Step 5: Dashboard Layout & Header
-- `page.tsx`: Responsive CSS grid — 2-col on desktop (3D scene left, panels right), 1-col on mobile
-- `MissionHeader.tsx`: Mission name, MET clock (T+DD:HH:MM:SS), phase badge with color, data source indicator (AROW/Computed), 4 stat cards: speed (km/s), altitude (km), distance to Earth, distance to Moon. All from `useMissionData` + `useSimulationClock`.
+### Step 5: Core UI components
+- `src/components/KeyboardControls.tsx`
+- `src/components/MissionHeader.tsx`
+- `src/components/TimeScrubber.tsx`
 
 ### Step 6: 3D Visualization
-- Download free 2K NASA Earth/Moon textures to `public/textures/`
-- `OrbitScene.tsx`:
-  - Earth: textured sphere, slow rotation, r=0.64 (scale: 1 unit = 10,000 km)
-  - Moon: textured sphere at computed position (~38.4 units), r=0.17
-  - Trajectory: `<Line>` from orbital computation (full mission path), split into past (solid bright) and future (transparent)
-  - Orion: small glowing sphere + point light at live position
-  - Distance labels: drei `<Html>` showing km values
-  - `<OrbitControls>` for user interaction, `<Stars>` background
-- `SceneView.tsx`: `next/dynamic(() => import('./OrbitScene'), { ssr: false })`
+- `src/components/OrbitScene.tsx`
+- `src/components/SceneView.tsx`
 
-### Step 7: Timeline + Charts + Crew + Education
-- `Timeline.tsx`: Horizontal scrollable strip of milestone cards. Past=checked+dimmed, current=glowing+highlighted, future=muted. Auto-scrolls to current.
-- `TelemetryCharts.tsx`: 2 Recharts LineCharts — velocity curve and dual-line distance chart. Data from orbital computation (full mission profile). Vertical marker at current MET. Dark themed with artemis colors.
-- `CrewSection.tsx`: 4 cards with colored initials avatar, name, role, agency, bio snippet. Data from mission config.
-- `EducationSection.tsx`: Collapsible sections — free-return trajectory, SLS/Orion overview. Content from mission config.
+### Step 7: Dashboard sections
+- `src/components/Timeline.tsx`
+- `src/components/TelemetryCharts.tsx`
+- `src/components/CrewSection.tsx`
+- `src/components/EducationSection.tsx`
 
-### Step 8: Polish, Build, Push
-- `<Suspense>` fallback for 3D scene loading
-- Responsive testing
-- `npm run build` verification
-- Commit all files, push to `claude/artemis-mission-tracker-g0AJn`
+### Step 8: Pages
+- `src/app/page.tsx` -- main dashboard
+- `src/app/simulator/page.tsx` -- geek simulator
 
-## Verification
-1. `npm run dev` loads dashboard at localhost:3000
-2. MET clock ticks in real-time
-3. `/api/trajectory` returns position data (falls back to computed if AROW unavailable)
-4. 3D scene renders Earth, Moon, trajectory, Orion at correct position
-5. Stats update live in header
-6. Timeline highlights correct milestone
-7. Charts show full mission profile with current-time marker
-8. Works on narrow viewport (mobile)
-9. `npm run build` succeeds
-10. To add Artemis III: create new config file, change import — all components adapt
+### Step 9: Build verification + push
+- `npm run build` -- must pass clean
+- Commit and push all to `claude/artemis-mission-tracker-g0AJn`
+
+## Verification Checklist
+
+- [ ] `npm run dev` loads dashboard at localhost:3000 with dark space theme
+- [ ] MET clock ticks every second in real-time
+- [ ] Space bar toggles live/pause; 3D scene pauses/resumes
+- [ ] Scrubber slider moves Orion position in 3D scene
+- [ ] 1/2/3/4 keys set playback speed; fast-forward visible in scene
+- [ ] E/M/O keys smoothly animate camera to Earth/Moon/Orion
+- [ ] ? key shows hotkey cheatsheet overlay
+- [ ] Timeline highlights current milestone; clicking scrubs to it
+- [ ] Charts show current-MET reference line moving in sync
+- [ ] /simulator route loads; manual burn inputs and export work
+- [ ] `npm run build` completes without TypeScript or lint errors
+- [ ] Works on narrow viewport (mobile responsive)
+
+---
+
+*Personal fan project -- not affiliated with NASA. All mission data sourced from public NASA materials.*
+*NASA Artemis tracking: https://www.nasa.gov/trackartemis/*
