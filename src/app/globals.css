@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  --background: #050510;
+  --foreground: #e0e0f0;
+  --artemis-blue: #00b4d8;
+  --artemis-cyan: #48cae4;
+  --artemis-orange: #ff6b35;
+  --artemis-gold: #fca311;
+  --space-800: #0d1117;
+  --space-700: #161b22;
+  --status-nominal: #00ff88;
+  --status-caution: #fca311;
+  --status-warning: #ef233c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-artemis-blue: var(--artemis-blue);
+  --color-artemis-cyan: var(--artemis-cyan);
+  --color-artemis-orange: var(--artemis-orange);
+  --color-artemis-gold: var(--artemis-gold);
+  --color-space-800: var(--space-800);
+  --color-space-700: var(--space-700);
+  --color-status-nominal: var(--status-nominal);
+  --color-status-caution: var(--status-caution);
+  --color-status-warning: var(--status-warning);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+.glow-blue {
+  box-shadow: 0 0 15px rgba(0, 180, 216, 0.3), inset 0 0 15px rgba(0, 180, 216, 0.05);
+}
+
+.glow-orange {
+  box-shadow: 0 0 15px rgba(255, 107, 53, 0.3), inset 0 0 15px rgba(255, 107, 53, 0.05);
+}
+
+.text-glow-blue {
+  text-shadow: 0 0 10px rgba(0, 180, 216, 0.6);
+}
+
+.text-glow-green {
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Custom scrollbar for timeline */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: var(--space-800);
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--artemis-blue);
+  border-radius: 2px;
+}
