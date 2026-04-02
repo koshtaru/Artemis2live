@@ -37,3 +37,26 @@ export function formatCountdown(seconds: number): string {
   }
   return `${h}h ${m}m ${s}s`;
 }
+
+export function formatSigned(val: number, decimals: number = 1): string {
+  const sign = val >= 0 ? "+" : "";
+  return `${sign}${val.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+
+export function formatLightTime(seconds: number): string {
+  if (seconds < 0.1) return "< 0.1s";
+  return `${seconds.toFixed(2)}s`;
+}
+
+export function formatGForce(g: number): string {
+  if (g < 0.01) return "~0.00 g";
+  return `${g.toFixed(2)} g`;
+}
+
+export function formatAngle(degrees: number): string {
+  return `${degrees >= 0 ? "+" : ""}${degrees.toFixed(1)}°`;
+}
+
+export function formatEnergy(energy: number): string {
+  return `${energy >= 0 ? "+" : ""}${energy.toFixed(1)} km²/s²`;
+}

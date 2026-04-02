@@ -61,9 +61,28 @@ body {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* Custom scrollbar for timeline */
+/* Glassmorphic panels — SpaceX style */
+.glass-panel {
+  background: rgba(13, 17, 23, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.4), inset 0 0 30px rgba(0, 180, 216, 0.02);
+}
+
+.glass-panel-sm {
+  background: rgba(13, 17, 23, 0.5);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+/* Custom scrollbar */
 .scrollbar-thin::-webkit-scrollbar {
   height: 4px;
+  width: 4px;
 }
 .scrollbar-thin::-webkit-scrollbar-track {
   background: var(--space-800);

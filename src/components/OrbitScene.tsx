@@ -63,15 +63,40 @@ function Earth() {
   });
 
   return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[EARTH_RADIUS, 64, 64]} />
-      <meshStandardMaterial
-        map={texture}
-        color={texture ? undefined : "#1a6fa0"}
-        roughness={0.8}
-        metalness={0.1}
-      />
-    </mesh>
+    <group>
+      {/* Earth sphere */}
+      <mesh ref={meshRef}>
+        <sphereGeometry args={[EARTH_RADIUS, 64, 64]} />
+        <meshStandardMaterial
+          map={texture}
+          color={texture ? undefined : "#1a6fa0"}
+          roughness={0.8}
+          metalness={0.1}
+        />
+      </mesh>
+      {/* Atmosphere glow — slightly larger sphere, rendered on BackSide */}
+      <mesh>
+        <sphereGeometry args={[EARTH_RADIUS * 1.08, 64, 64]} />
+        <meshBasicMaterial
+          color="#00b4d8"
+          transparent
+          opacity={0.12}
+          side={THREE.BackSide}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Outer haze */}
+      <mesh>
+        <sphereGeometry args={[EARTH_RADIUS * 1.2, 32, 32]} />
+        <meshBasicMaterial
+          color="#48cae4"
+          transparent
+          opacity={0.04}
+          side={THREE.BackSide}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
   );
 }
 
@@ -81,14 +106,29 @@ function Moon({ met }: { met: number }) {
   const texture = useOptionalTexture("/textures/moon.jpg");
 
   return (
-    <mesh position={pos}>
-      <sphereGeometry args={[MOON_RADIUS, 32, 32]} />
-      <meshStandardMaterial
-        map={texture}
-        color={texture ? undefined : "#8a8a8a"}
-        roughness={0.95}
-      />
-    </mesh>
+    <group position={pos}>
+      <mesh>
+        <sphereGeometry args={[MOON_RADIUS, 32, 32]} />
+        <meshStandardMaterial
+          map={texture}
+          color={texture ? undefined : "#b0b0b0"}
+          roughness={1.0}
+          emissive="#aaaaaa"
+          emissiveIntensity={0.05}
+        />
+      </mesh>
+      {/* Subtle moon glow */}
+      <mesh>
+        <sphereGeometry args={[MOON_RADIUS * 1.1, 24, 24]} />
+        <meshBasicMaterial
+          color="#c0c0c0"
+          transparent
+          opacity={0.04}
+          side={THREE.BackSide}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
   );
 }
 
@@ -113,14 +153,14 @@ function TrajectoryPath({ met }: { met: number }) {
   return (
     <>
       {pastPoints.length >= 2 && (
-        <Line points={pastPoints} color="#00b4d8" lineWidth={1.5} opacity={0.85} transparent />
+        <Line points={pastPoints} color="#00d4ff" lineWidth={2} opacity={0.9} transparent />
       )}
       {futurePoints.length >= 2 && (
         <Line
           points={futurePoints}
-          color="#00b4d8"
+          color="#ff6b35"
           lineWidth={1}
-          opacity={0.2}
+          opacity={0.25}
           transparent
           dashed
           dashSize={0.3}
@@ -300,6 +340,7 @@ const OrbitScene = forwardRef<SceneHandle>((_, ref) => {
         minDistance={1}
         maxDistance={120}
         enablePan
+        screenSpacePanning
       />
 
       <CameraController

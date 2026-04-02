@@ -20,38 +20,27 @@ export interface SimulationStore {
   telemetry: TelemetrySnapshot;
   dataSource: "arow" | "computed";
 
-  // Simulator-mode delta-V override
-  deltaV: Vec3 | null;
-
   // Actions
   setMET: (met: number) => void;
   setLive: (live: boolean) => void;
   setPlaybackSpeed: (speed: number) => void;
   setDataSource: (source: "arow" | "computed") => void;
-  applyDeltaV: (dv: Vec3) => void;
-  resetDeltaV: () => void;
   /** Called every second by useSimulationClock */
   tick: () => void;
   /** Called by useMissionData when fresh AROW data arrives */
   syncFromAPI: (met: number, position: Vec3, velocity: Vec3, dataSource: "arow" | "computed") => void;
 }
 
-function deriveState(met: number, deltaV: Vec3 | null) {
+function deriveState(met: number) {
   const clampedMet = Math.max(0, Math.min(met, mission.missionDurationSeconds));
   const point = interpolateTrajectory(clampedMet);
-
-  // Apply delta-V offset if in simulator mode
-  const velocity = deltaV
-    ? { x: point.velocity.x + deltaV.x, y: point.velocity.y + deltaV.y, z: point.velocity.z + deltaV.z }
-    : point.velocity;
-
   const phaseInfo = getPhase(clampedMet);
-  const telemetry = computeTelemetry(clampedMet, { ...point, velocity });
+  const telemetry = computeTelemetry(clampedMet, point);
 
   return {
     met: clampedMet,
     position: point.position,
-    velocity,
+    velocity: point.velocity,
     phase: phaseInfo.phase,
     phaseLabel: phaseInfo.label,
     phaseColor: phaseInfo.color,
@@ -62,23 +51,22 @@ function deriveState(met: number, deltaV: Vec3 | null) {
 // Use MET=0 for initial state to avoid SSR/client hydration mismatch.
 // The real MET is set on first client-side tick() call (within 1 second).
 export const useSimulationStore = create<SimulationStore>((set, get) => {
-  const initial = deriveState(0, null);
+  const initial = deriveState(0);
   return {
     ...initial,
     isLive: true,
     playbackSpeed: 1,
     dataSource: "computed",
-    deltaV: null,
 
     setMET: (met) => {
-      const derived = deriveState(met, get().deltaV);
+      const derived = deriveState(met);
       set({ ...derived, isLive: false });
     },
 
     setLive: (live) => {
       if (live) {
         const met = (Date.now() - mission.launchDate.getTime()) / 1000;
-        const derived = deriveState(met, get().deltaV);
+        const derived = deriveState(met);
         set({ ...derived, isLive: true });
       } else {
         set({ isLive: false });
@@ -89,25 +77,15 @@ export const useSimulationStore = create<SimulationStore>((set, get) => {
 
     setDataSource: (source) => set({ dataSource: source }),
 
-    applyDeltaV: (dv) => {
-      const derived = deriveState(get().met, dv);
-      set({ ...derived, deltaV: dv });
-    },
-
-    resetDeltaV: () => {
-      const derived = deriveState(get().met, null);
-      set({ ...derived, deltaV: null });
-    },
-
     tick: () => {
-      const { isLive, met, playbackSpeed, deltaV } = get();
+      const { isLive, met, playbackSpeed } = get();
       let nextMET: number;
       if (isLive) {
         nextMET = (Date.now() - mission.launchDate.getTime()) / 1000;
       } else {
         nextMET = met + playbackSpeed;
       }
-      const derived = deriveState(nextMET, deltaV);
+      const derived = deriveState(nextMET);
       set(derived);
     },
 
