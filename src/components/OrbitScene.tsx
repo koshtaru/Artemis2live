@@ -2,10 +2,11 @@
 
 import {
   useRef,
+  useState,
+  useEffect,
   useMemo,
   forwardRef,
   useImperativeHandle,
-  Suspense,
   MutableRefObject,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -15,7 +16,6 @@ import {
   Html,
   Line,
   AdaptiveDpr,
-  useTexture,
 } from "@react-three/drei";
 import * as THREE from "three";
 import { useSimulationStore } from "@/store/simulation";
@@ -34,46 +34,43 @@ function toScaled(v: Vec3): [number, number, number] {
 
 const FULL_TRAJECTORY = generateFullTrajectory(600);
 
-// Textured variants — useTexture suspends until loaded (Suspense-safe, always called unconditionally)
-function EarthTextured({ meshRef }: { meshRef: React.RefObject<THREE.Mesh | null> }) {
-  const texture = useTexture("/textures/earth.jpg");
-  return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[EARTH_RADIUS, 64, 64]} />
-      <meshStandardMaterial map={texture} roughness={0.8} metalness={0.1} />
-    </mesh>
-  );
-}
+// Load texture safely — returns null if file doesn't exist
+function useOptionalTexture(path: string): THREE.Texture | null {
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const attempted = useRef(false);
 
-function EarthFallback({ meshRef }: { meshRef: React.RefObject<THREE.Mesh | null> }) {
-  return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[EARTH_RADIUS, 64, 64]} />
-      <meshStandardMaterial color="#1a6fa0" roughness={0.8} metalness={0.1} />
-    </mesh>
-  );
+  useEffect(() => {
+    if (attempted.current) return;
+    attempted.current = true;
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      path,
+      (tex) => setTexture(tex),
+      undefined,
+      () => {} // silently ignore load errors (missing file)
+    );
+  }, [path]);
+
+  return texture;
 }
 
 function Earth() {
   const meshRef = useRef<THREE.Mesh>(null);
+  const texture = useOptionalTexture("/textures/earth.jpg");
 
   useFrame((_, delta) => {
     if (meshRef.current) meshRef.current.rotation.y += delta * 0.05;
   });
 
   return (
-    <Suspense fallback={<EarthFallback meshRef={meshRef} />}>
-      <EarthTextured meshRef={meshRef} />
-    </Suspense>
-  );
-}
-
-function MoonTextured({ pos }: { pos: [number, number, number] }) {
-  const texture = useTexture("/textures/moon.jpg");
-  return (
-    <mesh position={pos}>
-      <sphereGeometry args={[MOON_RADIUS, 32, 32]} />
-      <meshStandardMaterial map={texture} roughness={0.95} />
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[EARTH_RADIUS, 64, 64]} />
+      <meshStandardMaterial
+        map={texture}
+        color={texture ? undefined : "#1a6fa0"}
+        roughness={0.8}
+        metalness={0.1}
+      />
     </mesh>
   );
 }
@@ -81,18 +78,17 @@ function MoonTextured({ pos }: { pos: [number, number, number] }) {
 function Moon({ met }: { met: number }) {
   const moonPos = getMoonPosition(met);
   const pos = toScaled(moonPos);
+  const texture = useOptionalTexture("/textures/moon.jpg");
 
   return (
-    <Suspense
-      fallback={
-        <mesh position={pos}>
-          <sphereGeometry args={[MOON_RADIUS, 32, 32]} />
-          <meshStandardMaterial color="#8a8a8a" roughness={0.95} />
-        </mesh>
-      }
-    >
-      <MoonTextured pos={pos} />
-    </Suspense>
+    <mesh position={pos}>
+      <sphereGeometry args={[MOON_RADIUS, 32, 32]} />
+      <meshStandardMaterial
+        map={texture}
+        color={texture ? undefined : "#8a8a8a"}
+        roughness={0.95}
+      />
+    </mesh>
   );
 }
 

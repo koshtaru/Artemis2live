@@ -59,13 +59,10 @@ function deriveState(met: number, deltaV: Vec3 | null) {
   };
 }
 
-const initialMET = () => {
-  const elapsed = (Date.now() - mission.launchDate.getTime()) / 1000;
-  return Math.max(0, Math.min(elapsed, mission.missionDurationSeconds));
-};
-
+// Use MET=0 for initial state to avoid SSR/client hydration mismatch.
+// The real MET is set on first client-side tick() call (within 1 second).
 export const useSimulationStore = create<SimulationStore>((set, get) => {
-  const initial = deriveState(initialMET(), null);
+  const initial = deriveState(0, null);
   return {
     ...initial,
     isLive: true,
